@@ -1,88 +1,82 @@
+/*
+IoT Sensor Service - Go (Gin)
+
+A RESTful API for managing IoT sensor devices with SQLite persistence
+and Bearer token authentication.
+*/
 package main
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
+	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/gin-gonic/gin"
+
+	"iot-sensor-service/config"
+	"iot-sensor-service/database"
+	"iot-sensor-service/handlers"
+	"iot-sensor-service/middleware"
+	"iot-sensor-service/repositories"
 )
 
-type Sensor struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	Type        string      `json:"type"`
-	Location    string      `json:"location"`
-	Value       interface{} `json:"value"`
-	Unit        string      `json:"unit"`
-	Status      string      `json:"status"`
-	LastReading string      `json:"last_reading"`
-}
-
-type HealthResponse struct {
-	Status  string `json:"status"`
-	Service string `json:"service"`
-}
-
-type ItemsResponse struct {
-	Sensors []Sensor `json:"sensors"`
-	Count   int      `json:"count"`
-}
-
-var dataFile = "/app/data/sensors.json"
-
-func loadSensors() ([]Sensor, error) {
-	data, err := os.ReadFile(dataFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []Sensor{}, nil
-		}
-		return nil, err
-	}
-
-	var sensors []Sensor
-	if err := json.Unmarshal(data, &sensors); err != nil {
-		return nil, err
-	}
-
-	return sensors, nil
-}
-
-func healthHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, HealthResponse{
-		Status:  "ok",
-		Service: "go",
-	})
-}
-
-func itemsHandler(c *gin.Context) {
-	sensors, err := loadSensors()
-	if err != nil {
-		log.Printf("Error loading sensors: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load sensors"})
-		return
-	}
-
-	c.JSON(http.StatusOK, ItemsResponse{
-		Sensors: sensors,
-		Count:   len(sensors),
-	})
-}
-
 func main() {
-	router := gin.Default()
-
-	router.GET("/health", healthHandler)
-	router.GET("/items", itemsHandler)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("Failed to load configuration", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("Starting Go IoT Sensor Service on port %s", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Connect to database
+	db, err := database.Connect(cfg.DatabasePath)
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Initialize database schema
+	if err := database.InitSchema(db); err != nil {
+		slog.Error("Failed to initialize database schema", "error", err)
+		os.Exit(1)
+	}
+
+	// Seed data from JSON if table is empty
+	if err := database.SeedFromJSON(db, cfg.SeedDataPath); err != nil {
+		slog.Error("Failed to seed database", "error", err)
+		os.Exit(1)
+	}
+
+	// Create repository
+	sensorRepo := repositories.NewSQLiteSensorRepository(db)
+
+	// Create handlers
+	healthHandler := handlers.NewHealthHandler()
+	sensorHandler := handlers.NewSensorHandler(sensorRepo)
+
+	// Set up router
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+
+	// Add middleware
+	router.Use(gin.Recovery())
+	router.Use(middleware.LoggingMiddleware())
+	router.Use(middleware.AuthMiddleware(cfg.APIToken))
+
+	// Register routes
+	router.GET("/health", healthHandler.Health)
+	router.GET("/sensors", sensorHandler.ListSensors)
+	router.GET("/sensors/:id", sensorHandler.GetSensor)
+	router.POST("/sensors", sensorHandler.CreateSensor)
+	router.PUT("/sensors/:id", sensorHandler.UpdateSensor)
+	router.DELETE("/sensors/:id", sensorHandler.DeleteSensor)
+
+	// Start server
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	slog.Info("Starting Go IoT Sensor Service", "port", cfg.Port)
+	if err := router.Run(addr); err != nil {
+		slog.Error("Failed to start server", "error", err)
+		os.Exit(1)
 	}
 }

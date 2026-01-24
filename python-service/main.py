@@ -1,38 +1,36 @@
+"""
+IoT Sensor Service - Python (FastAPI)
+
+A RESTful API for managing IoT sensor devices with SQLite persistence
+and Bearer token authentication.
+"""
+
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-import json
-from pathlib import Path
-from pydantic import BaseModel
-from typing import Union
 
-app = FastAPI(title="IoT Sensor Service - Python")
-
-DATA_FILE = Path("/app/data/sensors.json")
+from database import init_database
+from middleware.logging import LoggingMiddleware
+from routers import health_router, sensors_router
 
 
-class Sensor(BaseModel):
-    id: str
-    name: str
-    type: str
-    location: str
-    value: Union[float, bool, int]
-    unit: str
-    status: str
-    last_reading: str
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup."""
+    init_database()
+    yield
 
 
-def load_sensors():
-    if DATA_FILE.exists():
-        with open(DATA_FILE) as f:
-            return json.load(f)
-    return []
+app = FastAPI(
+    title="IoT Sensor Service",
+    description="RESTful API for managing IoT sensor devices in a smart home ecosystem",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
+# Add middleware
+app.add_middleware(LoggingMiddleware)
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "service": "python"}
-
-
-@app.get("/items")
-def get_items():
-    sensors = load_sensors()
-    return {"sensors": sensors, "count": len(sensors)}
+# Include routers
+app.include_router(health_router)
+app.include_router(sensors_router)

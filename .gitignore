@@ -18,3 +18,7 @@ __pycache__/
 # Personal notes
 hardware/
 social-news-feed/
+CONCEPTS_TO_REVIEW.md
+
+# Database files
+*.db
