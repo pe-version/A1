@@ -251,73 +251,51 @@ go test ./tests/ -v
 
 ## Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           EXTERNAL CLIENTS                               │
-│                     (curl, Postman, Web Apps, etc.)                     │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 │ HTTPS/HTTP
-                                 │ Authorization: Bearer <token>
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        SECURITY BOUNDARY                                 │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │                    Bearer Token Validation                         │  │
-│  │                  (Middleware - All Routes)                         │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 │ Validated Requests
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         IoT SENSOR SERVICE                               │
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    LOGGING MIDDLEWARE                            │    │
-│  │              (Correlation ID, Request/Response Logging)          │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                 │                                        │
-│  ┌──────────────────────────────┼──────────────────────────────────┐    │
-│  │                         API LAYER                                │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │    │
-│  │  │ GET /health  │  │ GET /sensors │  │ POST/PUT/DELETE      │   │    │
-│  │  │              │  │ GET /:id     │  │ /sensors/:id         │   │    │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────┘   │    │
-│  └──────────────────────────────┼──────────────────────────────────┘    │
-│                                 │                                        │
-│  ┌──────────────────────────────┼──────────────────────────────────┐    │
-│  │                      DEPENDENCY INJECTION                        │    │
-│  │           (Python: Depends() / Go: Interface-based)              │    │
-│  └──────────────────────────────┼──────────────────────────────────┘    │
-│                                 │                                        │
-│  ┌──────────────────────────────┼──────────────────────────────────┐    │
-│  │                      REPOSITORY LAYER                            │    │
-│  │              (SensorRepository - Data Access)                    │    │
-│  └──────────────────────────────┼──────────────────────────────────┘    │
-│                                 │                                        │
-└─────────────────────────────────┼────────────────────────────────────────┘
-                                  │
-                                  │ SQL Queries
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          DATA STORAGE                                    │
-│                                                                          │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │                        SQLite Database                             │  │
-│  │                      /app/data/sensors.db                          │  │
-│  │                                                                    │  │
-│  │  ┌─────────────────────────────────────────────────────────────┐  │  │
-│  │  │  sensors TABLE                                               │  │  │
-│  │  │  - id, name, type, location, value, unit, status,            │  │  │
-│  │  │    last_reading, created_at, updated_at                      │  │  │
-│  │  └─────────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Docker Volume Mount: ./data:/app/data (persistent storage)       │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
+![Architecture Diagram](architecture.png)
+
+*See [architecture.md](architecture.md) for the source diagram and additional details.*
+
+```mermaid
+flowchart TB
+    subgraph External["External Clients"]
+        Client["HTTP Client<br/>(curl, Postman, etc.)"]
+    end
+
+    subgraph Security["Security Boundary"]
+        subgraph Docker["Docker Compose Network"]
+            subgraph PythonService["Python Service (FastAPI)"]
+                direction TB
+                PAuth["Auth Middleware<br/>Bearer Token Validation"]
+                PLog["Logging Middleware<br/>Correlation ID"]
+                PRouter["Routers<br/>/health, /sensors"]
+                PRepo["Repository Layer"]
+                PAuth --> PLog --> PRouter --> PRepo
+            end
+
+            subgraph GoService["Go Service (Gin)"]
+                direction TB
+                GAuth["Auth Middleware<br/>Bearer Token Validation"]
+                GLog["Logging Middleware<br/>Correlation ID"]
+                GHandler["Handlers<br/>/health, /sensors"]
+                GRepo["Repository Layer"]
+                GAuth --> GLog --> GHandler --> GRepo
+            end
+
+            subgraph Storage["Data Storage"]
+                PDB[("SQLite<br/>sensors-python.db")]
+                GDB[("SQLite<br/>sensors-go.db")]
+                Seed["sensors.json<br/>(seed data)"]
+            end
+        end
+    end
+
+    Client -->|"POST/GET/PUT/DELETE<br/>Authorization: Bearer token<br/>:8000"| PAuth
+    Client -->|"POST/GET/PUT/DELETE<br/>Authorization: Bearer token<br/>:8080"| GAuth
+
+    PRepo --> PDB
+    GRepo --> GDB
+    PDB -.->|"seed on startup"| Seed
+    GDB -.->|"seed on startup"| Seed
 ```
 
 ---
