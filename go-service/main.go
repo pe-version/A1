@@ -59,18 +59,21 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
-	// Add middleware
+	// Add global middleware
 	router.Use(gin.Recovery())
 	router.Use(middleware.LoggingMiddleware())
-	router.Use(middleware.AuthMiddleware(cfg.APIToken))
 
-	// Register routes
+	// Health endpoint - unauthenticated for load balancer/orchestrator probes
 	router.GET("/health", healthHandler.Health)
-	router.GET("/sensors", sensorHandler.ListSensors)
-	router.GET("/sensors/:id", sensorHandler.GetSensor)
-	router.POST("/sensors", sensorHandler.CreateSensor)
-	router.PUT("/sensors/:id", sensorHandler.UpdateSensor)
-	router.DELETE("/sensors/:id", sensorHandler.DeleteSensor)
+
+	// Protected routes - require Bearer token authentication
+	protected := router.Group("/")
+	protected.Use(middleware.AuthMiddleware(cfg.APIToken))
+	protected.GET("/sensors", sensorHandler.ListSensors)
+	protected.GET("/sensors/:id", sensorHandler.GetSensor)
+	protected.POST("/sensors", sensorHandler.CreateSensor)
+	protected.PUT("/sensors/:id", sensorHandler.UpdateSensor)
+	protected.DELETE("/sensors/:id", sensorHandler.DeleteSensor)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", cfg.Port)

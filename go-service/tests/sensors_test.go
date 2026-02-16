@@ -50,15 +50,18 @@ func setupTestRouter(t *testing.T) (*gin.Engine, func()) {
 	// Set up router
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(middleware.AuthMiddleware(testToken))
 
-	// Register routes
+	// Health endpoint - no auth required (for load balancer probes)
 	router.GET("/health", healthHandler.Health)
-	router.GET("/sensors", sensorHandler.ListSensors)
-	router.GET("/sensors/:id", sensorHandler.GetSensor)
-	router.POST("/sensors", sensorHandler.CreateSensor)
-	router.PUT("/sensors/:id", sensorHandler.UpdateSensor)
-	router.DELETE("/sensors/:id", sensorHandler.DeleteSensor)
+
+	// Protected routes - require Bearer token
+	protected := router.Group("/")
+	protected.Use(middleware.AuthMiddleware(testToken))
+	protected.GET("/sensors", sensorHandler.ListSensors)
+	protected.GET("/sensors/:id", sensorHandler.GetSensor)
+	protected.POST("/sensors", sensorHandler.CreateSensor)
+	protected.PUT("/sensors/:id", sensorHandler.UpdateSensor)
+	protected.DELETE("/sensors/:id", sensorHandler.DeleteSensor)
 
 	// Return cleanup function
 	cleanup := func() {
@@ -110,13 +113,13 @@ func TestAuthorizedWithValidToken(t *testing.T) {
 	}
 }
 
-func TestHealthEndpoint(t *testing.T) {
+func TestHealthEndpointNoAuthRequired(t *testing.T) {
 	router, cleanup := setupTestRouter(t)
 	defer cleanup()
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/health", nil)
-	req.Header.Set("Authorization", "Bearer "+testToken)
+	// No Authorization header - health should work without auth
 	router.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {

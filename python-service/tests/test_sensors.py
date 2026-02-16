@@ -28,9 +28,9 @@ class TestAuthentication:
 class TestHealthEndpoint:
     """Tests for the health endpoint."""
 
-    def test_health_returns_ok(self, client, auth_headers):
-        """Health endpoint should return ok status."""
-        response = client.get("/health", headers=auth_headers)
+    def test_health_returns_ok_without_auth(self, client):
+        """Health endpoint should return ok status without authentication."""
+        response = client.get("/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"

@@ -95,16 +95,16 @@ A1/
 
 ## API Endpoints
 
-All endpoints require Bearer token authentication via the `Authorization` header.
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|---------------|-------------|
+| GET | `/health` | No | Service health check |
+| GET | `/sensors` | Yes | List all sensors |
+| GET | `/sensors/{id}` | Yes | Get sensor by ID |
+| POST | `/sensors` | Yes | Create a new sensor |
+| PUT | `/sensors/{id}` | Yes | Update an existing sensor |
+| DELETE | `/sensors/{id}` | Yes | Delete a sensor |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Service health check |
-| GET | `/sensors` | List all sensors |
-| GET | `/sensors/{id}` | Get sensor by ID |
-| POST | `/sensors` | Create a new sensor |
-| PUT | `/sensors/{id}` | Update an existing sensor |
-| DELETE | `/sensors/{id}` | Delete a sensor |
+**Note:** The `/health` endpoint is intentionally unauthenticated. This follows industry-standard practice for health checks, as documented in the [Kubernetes documentation on liveness and readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/). Load balancers, orchestrators (Kubernetes, Docker Swarm), and monitoring systems require unauthenticated health endpoints to verify service availability without application-level credentials.
 
 ### Port Mapping
 - **Python Service:** http://localhost:8000
@@ -142,14 +142,14 @@ docker-compose down
 ## Example Requests/Responses
 
 ### Authentication
-All requests require the `Authorization: Bearer <token>` header:
+All `/sensors` endpoints require the `Authorization: Bearer <token>` header:
 ```bash
-curl -H "Authorization: Bearer your-secret-token" http://localhost:8000/health
+curl -H "Authorization: Bearer your-secret-token" http://localhost:8000/sensors
 ```
 
-### Health Check
+### Health Check (No Auth Required)
 ```bash
-curl -H "Authorization: Bearer your-secret-token" http://localhost:8000/health
+curl http://localhost:8000/health
 ```
 Response:
 ```json
@@ -241,14 +241,25 @@ Response (401):
 
 ## Running Tests
 
-### Python Tests
+### Python Tests (via Docker)
+```bash
+docker-compose run --rm python-service pytest tests/ -v
+```
+
+Or locally:
 ```bash
 cd python-service
 pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-### Go Tests
+### Go Tests (via Docker)
+```bash
+cd go-service
+docker run --rm -v "$(pwd)":/app -w /app golang:1.21 go test ./tests/ -v
+```
+
+Or locally (requires Go 1.21+):
 ```bash
 cd go-service
 go test ./tests/ -v
@@ -262,9 +273,10 @@ go test ./tests/ -v
 
 ## Architecture Diagram
 
-![Architecture Diagram](go-and-python-microservices-running.png)
+The architecture diagram below renders natively on GitHub. See [architecture.md](architecture.md) for the ASCII fallback version.
 
-*See [architecture.md](architecture.md) for the mermaid source and ASCII diagram.*
+![Services Running](go-and-python-microservices-running.png)
+*Screenshot: Both services running in Docker Compose*
 
 ```mermaid
 flowchart TB
