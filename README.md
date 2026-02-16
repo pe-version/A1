@@ -45,7 +45,10 @@ A1/
 ├── README.md                    # This file
 ├── openapi.yaml                 # OpenAPI 3.0 specification
 ├── docker-compose.yml           # Service orchestration
-├── architecture.png             # Architecture diagram
+├── architecture.md              # Architecture diagram source (mermaid + ASCII)
+├── go-and-python-microservices-running.png  # Screenshot evidence
+├── postman/
+│   └── IoT_Sensors_API.postman_collection.json  # Postman collection
 ├── data/
 │   └── sensors.json             # Seed data for database
 ├── python-service/
@@ -251,9 +254,9 @@ go test ./tests/ -v
 
 ## Architecture Diagram
 
-![Architecture Diagram](architecture.png)
+![Architecture Diagram](go-and-python-microservices-running.png)
 
-*See [architecture.md](architecture.md) for the source diagram and additional details.*
+*See [architecture.md](architecture.md) for the mermaid source and ASCII diagram.*
 
 ```mermaid
 flowchart TB
