@@ -43,7 +43,7 @@ type SensorCreate struct {
 	Name     string  `json:"name" binding:"required,min=1,max=100"`
 	Type     string  `json:"type" binding:"required"`
 	Location string  `json:"location" binding:"required,min=1,max=100"`
-	Value    float64 `json:"value" binding:"required"`
+	Value    float64 `json:"value"`
 	Unit     string  `json:"unit" binding:"required,min=1,max=50"`
 	Status   string  `json:"status" binding:"required"`
 }

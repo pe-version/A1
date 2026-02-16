@@ -46,7 +46,9 @@ A1/
 ├── openapi.yaml                 # OpenAPI 3.0 specification
 ├── docker-compose.yml           # Service orchestration
 ├── architecture.md              # Architecture diagram source (mermaid + ASCII)
-├── go-and-python-microservices-running.png  # Screenshot evidence
+├── go-and-python-microservices-running.png  # Screenshot: services running
+├── python-tests-running.png     # Screenshot: Python test results
+├── go-tests-running.png         # Screenshot: Go test results
 ├── postman/
 │   └── IoT_Sensors_API.postman_collection.json  # Postman collection
 ├── data/
@@ -252,6 +254,12 @@ cd go-service
 go test ./tests/ -v
 ```
 
+### Test Evidence
+
+![Python Tests Passing](python-tests-running.png)
+
+![Go Tests Passing](go-tests-running.png)
+
 ## Architecture Diagram
 
 ![Architecture Diagram](go-and-python-microservices-running.png)
@@ -415,6 +423,8 @@ func Load() (*Config, error) {
 4. **Validation Trade-off:** Pydantic models validate automatically. Go requires manual validation but gives full control over error messages.
 
 5. **Middleware Trade-off:** Both frameworks handle middleware similarly, but Gin requires explicit `c.Abort()` to stop the chain.
+
+6. **Zero-Value Validation:** Go's `binding:"required"` tag fails validation for zero values (e.g., `value: 0.0` for a motion sensor). This is because Go cannot distinguish between "field not provided" and "field set to zero." The workaround is to either use a pointer type (`*float64`) or remove `required` from numeric fields where zero is valid. Python/Pydantic handles this correctly by distinguishing `None` from `0`. In this implementation, we removed `required` from `Value` in Go to allow legitimate zero sensor readings.
 
 ---
 

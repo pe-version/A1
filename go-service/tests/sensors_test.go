@@ -323,6 +323,10 @@ func TestDeleteSensor(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(w, req)
 
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Create failed: %d - %s", w.Code, w.Body.String())
+	}
+
 	var created map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &created)
 	sensorID := created["id"].(string)
