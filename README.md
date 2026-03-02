@@ -732,7 +732,7 @@ The `data/sensors.json` file contains 6 IoT sensors representing a smart home se
 | type | string | Yes | One of: temperature, motion, humidity, light, air_quality, co2, contact, pressure |
 | location | string | Yes | 1-100 characters |
 | value | number | Yes | Any numeric value |
-| unit | string | Yes | 1-50 characters |
+| unit | string | Yes | One of: fahrenheit, celsius, boolean, percent, aqi, ppm, lux, pascal |
 | status | string | Yes | One of: active, inactive, error |
 
 ---
